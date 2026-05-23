@@ -121,8 +121,9 @@ def _gha_escape(s: str) -> str:
 
 def emit_gha(result: Result, fail_on: str) -> int:
     # Report file contains every event including info, so it's useful for
-    # debugging via actions/upload-artifact. Outputs, summary, and annotations
-    # are scoped to actionable issues (errors + warnings) only.
+    # debugging via actions/upload-artifact. Annotations stay scoped to
+    # actionable issues (errors + warnings); the summary and report
+    # surface info events too.
     report_path = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "feed-validator-report.txt"
     report_text = "".join(f"{e.severity.upper():7s} {e.render()}\n" for e in result.events)
     report_path.write_text(report_text or "(no events)\n")
@@ -142,6 +143,7 @@ def emit_gha(result: Result, fail_on: str) -> int:
         (
             f"errors={result.errors}\n"
             f"warnings={result.warnings}\n"
+            f"info={len(result.info)}\n"
             f"issues={len(result.issues)}\n"
             f"report-path={report_path}\n"
         ),
@@ -152,12 +154,13 @@ def emit_gha(result: Result, fail_on: str) -> int:
         "",
         f"- Errors: {result.errors}",
         f"- Warnings: {result.warnings}",
+        f"- Info: {len(result.info)}",
         "",
     ]
-    if result.issues:
-        summary_lines += ["```", *(f"{i.severity.upper():7s} {i.render()}" for i in result.issues), "```"]
+    if result.events:
+        summary_lines += ["```", *(f"{e.severity.upper():7s} {e.render()}" for e in result.events), "```"]
     else:
-        summary_lines.append("No issues reported.")
+        summary_lines.append("No events reported.")
     _append("GITHUB_STEP_SUMMARY", "\n".join(summary_lines) + "\n")
 
     for issue in result.issues:
@@ -166,6 +169,8 @@ def emit_gha(result: Result, fail_on: str) -> int:
     fail_on = fail_on.lower()
     if fail_on == "never":
         return 0
+    if fail_on == "info" and result.events:
+        return 1
     if fail_on == "warnings" and (result.errors or result.warnings):
         return 1
     if result.errors:

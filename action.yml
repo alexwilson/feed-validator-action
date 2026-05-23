@@ -23,7 +23,8 @@ inputs:
   fail-on:
     description: >
       When to fail the step: `errors` (default; any validator error),
-      `warnings` (any warning or error), or `never` (run for reporting only).
+      `warnings` (any warning or error), `info` (any event at all,
+      including informational ones), or `never` (run for reporting only).
     required: false
     default: errors
   compatibility:
@@ -41,8 +42,11 @@ outputs:
   warnings:
     description: 'Number of warnings reported by the validator.'
     value: ${{ steps.validate.outputs.warnings }}
+  info:
+    description: 'Number of informational events reported by the validator.'
+    value: ${{ steps.validate.outputs.info }}
   issues:
-    description: 'Total number of issues (errors + warnings + info).'
+    description: 'Total of errors + warnings (informational events excluded).'
     value: ${{ steps.validate.outputs.issues }}
   report-path:
     description: 'Path to the captured validator report (text file).'

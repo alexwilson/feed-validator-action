@@ -59,15 +59,17 @@ def test_origin_url_mismatch_still_warns():
 
 
 @pytest.mark.parametrize(
-    "fail_on,errors,warnings,expected_code",
+    "fail_on,errors,warnings,info,expected_code",
     [
-        ("errors", 1, 0, 1),    # any error fails
-        ("errors", 0, 3, 0),    # warnings alone tolerated
-        ("warnings", 0, 1, 1),  # warnings alone fails
-        ("never", 99, 99, 0),   # never fails
+        ("errors", 1, 0, 0, 1),     # any error fails
+        ("errors", 0, 3, 5, 0),     # warnings and info tolerated under errors mode
+        ("warnings", 0, 1, 0, 1),   # warnings alone fails
+        ("warnings", 0, 0, 5, 0),   # info alone tolerated under warnings mode
+        ("info", 0, 0, 1, 1),       # info alone fails info mode
+        ("never", 99, 99, 99, 0),   # never fails
     ],
 )
-def test_fail_on_exit_code(monkeypatch, tmp_path, fail_on, errors, warnings, expected_code):
+def test_fail_on_exit_code(monkeypatch, tmp_path, fail_on, errors, warnings, info, expected_code):
     monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
@@ -77,6 +79,7 @@ def test_fail_on_exit_code(monkeypatch, tmp_path, fail_on, errors, warnings, exp
         events=(
             [Issue(severity="error", name="E")] * errors
             + [Issue(severity="warning", name="W")] * warnings
+            + [Issue(severity="info", name="I")] * info
         ),
     )
     assert emit_gha(result, fail_on) == expected_code
@@ -124,9 +127,27 @@ def test_emit_gha_writes_outputs_and_summary(monkeypatch, tmp_path):
     out = output_file.read_text()
     assert f"errors={result.errors}" in out
     assert f"warnings={result.warnings}" in out
+    assert f"info={len(result.info)}" in out
     assert f"issues={len(result.issues)}" in out
     assert "report-path=" in out
 
     summary = summary_file.read_text()
     assert "Feed validation:" in summary
     assert f"Errors: {result.errors}" in summary
+    assert f"Info: {len(result.info)}" in summary
+
+
+def test_summary_includes_info_events(monkeypatch, tmp_path):
+    # Info events should appear in the summary code block, not only in the
+    # report file. Use AAA so info is actually surfaced.
+    summary_file = tmp_path / "summary"
+    summary_file.touch()
+    monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_file))
+
+    result = validate(str(FIXTURES / "valid.atom"), compat="AAA")
+    emit_gha(result, "errors")
+
+    assert result.info
+    assert "INFO" in summary_file.read_text()

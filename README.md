@@ -21,7 +21,7 @@ You don't need `submodules: true` on your own checkout. The vendored feedvalidat
 | `feed` | (required) | Path or URL of the feed. Local paths resolve relative to the workspace; URLs are fetched live. |
 | `origin-url` | — | For local files: the URL this feed will be served from. The validator treats the file as if loaded there, so the self-link check passes for an artefact that hasn't shipped yet. Ignored when `feed` is a URL. |
 | `python-version` | `3.x` | Override if a future Python rev breaks the validator. |
-| `fail-on` | `errors` | `errors` (any validator error), `warnings` (any warning or error), or `never` (report only, never fail the step). |
+| `fail-on` | `errors` | `errors` (any validator error), `warnings` (any warning or error), `info` (any event at all, including informational ones — useful with `compatibility: AAA`), or `never` (report only, never fail the step). |
 | `compatibility` | `AA` | Validator strictness: `A` (loosest), `AA` (mimics the online validator), or `AAA` (experimental; upstream warns rules may change). |
 
 ## Outputs
@@ -30,7 +30,8 @@ You don't need `submodules: true` on your own checkout. The vendored feedvalidat
 |---|---|
 | `errors` | Number of errors reported. |
 | `warnings` | Number of warnings reported. |
-| `issues` | Errors + warnings (info events are excluded). |
+| `info` | Number of informational events reported (only non-zero at `compatibility: AAA`). |
+| `issues` | Errors + warnings (info events excluded). |
 | `report-path` | Path to a text file with the full report, info events included. Pair with `actions/upload-artifact` for post-mortem inspection. |
 
 ## Examples
