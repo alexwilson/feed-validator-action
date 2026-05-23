@@ -1,5 +1,9 @@
-name: 'Validate feed'
-description: 'Validate an Atom/RSS feed using a vendored W3C feedvalidator.'
+name: 'Feed Validator Action'
+description: 'Validate an Atom/RSS feed using the W3C validator.'
+
+branding:
+  icon: rss
+  color: orange
 
 inputs:
   feed:
