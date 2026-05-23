@@ -51,6 +51,44 @@ outputs:
 runs:
   using: composite
   steps:
+    # GitHub fetches actions via a tarball that doesn't recurse submodules,
+    # so vendor/feedvalidator ships empty. Recover the pinned SHA from the
+    # public contents API at the ref the consumer used, then download the
+    # matching feedvalidator source.
+    - name: Fetch vendored feedvalidator at pinned SHA
+      shell: bash
+      env:
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_REPO: ${{ github.action_repository }}
+      run: |
+        set -euo pipefail
+        target="${GITHUB_ACTION_PATH}/vendor/feedvalidator"
+        # If the submodule is already populated, the action is being used
+        # locally (e.g. via `uses: ./` in this repo's own tests) and the
+        # consumer's checkout brought the source along. Nothing to do.
+        if [ -f "${target}/src/feedvalidator/__init__.py" ]; then
+          echo "vendor/feedvalidator already populated; skipping runtime fetch"
+          exit 0
+        fi
+        if [ -z "${ACTION_REF:-}" ] || [ -z "${ACTION_REPO:-}" ]; then
+          echo "::error::vendor/feedvalidator is empty and no action ref/repository is available to fetch from"
+          exit 1
+        fi
+        sha=$(
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${ACTION_REPO}/contents/vendor/feedvalidator?ref=${ACTION_REF}" \
+          | jq -r '.sha // empty'
+        )
+        if [ -z "$sha" ]; then
+          echo "::error::Could not resolve vendored feedvalidator SHA from ${ACTION_REPO}@${ACTION_REF}"
+          exit 1
+        fi
+        echo "::group::Fetch feedvalidator @ ${sha:0:7}"
+        mkdir -p "$target"
+        curl -fsSL "https://github.com/w3c/feedvalidator/archive/${sha}.tar.gz" \
+          | tar -xz -C "$target" --strip-components=1
+        echo "::endgroup::"
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
         python-version: ${{ inputs.python-version }}
