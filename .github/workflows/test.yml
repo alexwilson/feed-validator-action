@@ -31,11 +31,11 @@ jobs:
           PIP_DISABLE_PIP_VERSION_CHECK: '1'
         run: |
           pip install -q pip-tools
-          pip-compile --generate-hashes --quiet --output-file requirements.lock requirements.in
-          if [ -n "$(git status --porcelain requirements.lock)" ]; then
+          pip-compile --generate-hashes --quiet --output-file requirements.txt requirements.in
+          if [ -n "$(git status --porcelain requirements.txt)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add requirements.lock
+            git add requirements.txt
             git commit -m "chore: regenerate lockfile for submodule bump"
             git push
           fi
@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         env:
           PIP_DISABLE_PIP_VERSION_CHECK: '1'
-        run: pip install -q --require-hashes -r requirements.lock
+        run: pip install -q --require-hashes -r requirements.txt
       - name: Run tests
         run: pytest tests/
 
