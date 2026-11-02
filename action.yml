@@ -17,9 +17,12 @@ inputs:
     required: false
     default: ''
   python-version:
-    description: 'Python version to install for running the validator.'
+    description: >
+      Python version to install for running the validator. Defaults to the
+      version pinned in this action's `.python-version` file (the version the
+      lockfile was compiled against). Override to pin a different version.
     required: false
-    default: '3.x'
+    default: ''
   fail-on:
     description: >
       When to fail the step: `errors` (default; any validator error),
@@ -96,6 +99,7 @@ runs:
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
         python-version: ${{ inputs.python-version }}
+        python-version-file: ${{ inputs.python-version == '' && format('{0}/.python-version', github.action_path) || '' }}
     - name: Install vendored feedvalidator dependencies
       shell: bash
       env:
