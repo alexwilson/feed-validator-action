@@ -124,4 +124,5 @@ runs:
         COMPATIBILITY: ${{ inputs.compatibility }}
         ORIGIN_URL: ${{ inputs.origin-url }}
         PYTHONPATH: ${{ github.action_path }}/vendor/feedvalidator/src
-      run: python "${{ github.action_path }}/entrypoint.py" "${{ inputs.feed }}"
+        FEED: ${{ inputs.feed }}
+      run: python "${GITHUB_ACTION_PATH}/entrypoint.py" "$FEED"
