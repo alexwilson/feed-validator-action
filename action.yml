@@ -114,7 +114,7 @@ runs:
         PIP_DISABLE_PIP_VERSION_CHECK: '1'
       run: |
         echo "::group::pip install"
-        pip install -q --require-hashes -r "${{ github.action_path }}/requirements.lock"
+        pip install -q --require-hashes -r "${{ github.action_path }}/requirements.txt"
         echo "::endgroup::"
     - name: Validate feed
       id: validate
