@@ -23,3 +23,16 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+
+  # Bump the pins in requirements.txt. Dependabot re-runs pip-compile with
+  # hashes, and the regenerate-lockfile job runs on its PRs as a check.
+  # `fix:` so runtime dependency bumps ship as patch releases.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: fix
+      include: scope
