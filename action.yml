@@ -17,9 +17,12 @@ inputs:
     required: false
     default: ''
   python-version:
-    description: 'Python version to install for running the validator.'
+    description: >
+      Python version to install for running the validator. Defaults to the
+      version pinned in this action's `.python-version` file (the version the
+      lockfile was compiled against). Override to pin a different version.
     required: false
-    default: '3.x'
+    default: ''
   fail-on:
     description: >
       When to fail the step: `errors` (default; any validator error),
@@ -64,6 +67,9 @@ runs:
       env:
         ACTION_REF: ${{ github.action_ref }}
         ACTION_REPO: ${{ github.action_repository }}
+        # Unauthenticated API calls share a 60/hour quota across all
+        # GitHub-hosted runners on the same egress IP and often 403.
+        GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         target="${GITHUB_ACTION_PATH}/vendor/feedvalidator"
@@ -78,24 +84,30 @@ runs:
           echo "::error::vendor/feedvalidator is empty and no action ref/repository is available to fetch from"
           exit 1
         fi
-        sha=$(
-          curl -fsSL \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${ACTION_REPO}/contents/vendor/feedvalidator?ref=${ACTION_REF}" \
-          | jq -r '.sha // empty'
-        )
+        # Download to files rather than piping: curl --retry restarts the
+        # transfer, so a retried pipe would hand tar/jq a corrupt stream.
+        api_json=$(mktemp)
+        curl -fsSL --retry 3 \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          -o "$api_json" \
+          "https://api.github.com/repos/${ACTION_REPO}/contents/vendor/feedvalidator?ref=${ACTION_REF}"
+        sha=$(jq -r '.sha // empty' "$api_json")
         if [ -z "$sha" ]; then
           echo "::error::Could not resolve vendored feedvalidator SHA from ${ACTION_REPO}@${ACTION_REF}"
           exit 1
         fi
         echo "::group::Fetch feedvalidator @ ${sha:0:7}"
         mkdir -p "$target"
-        curl -fsSL "https://github.com/w3c/feedvalidator/archive/${sha}.tar.gz" \
-          | tar -xz -C "$target" --strip-components=1
+        tarball=$(mktemp)
+        curl -fsSL --retry 3 -o "$tarball" \
+          "https://github.com/w3c/feedvalidator/archive/${sha}.tar.gz"
+        tar -xzf "$tarball" -C "$target" --strip-components=1
         echo "::endgroup::"
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ inputs.python-version }}
+        python-version-file: ${{ inputs.python-version == '' && format('{0}/.python-version', github.action_path) || '' }}
     - name: Install vendored feedvalidator dependencies
       shell: bash
       env:
@@ -112,4 +124,5 @@ runs:
         COMPATIBILITY: ${{ inputs.compatibility }}
         ORIGIN_URL: ${{ inputs.origin-url }}
         PYTHONPATH: ${{ github.action_path }}/vendor/feedvalidator/src
-      run: python "${{ github.action_path }}/entrypoint.py" "${{ inputs.feed }}"
+        FEED: ${{ inputs.feed }}
+      run: python "${GITHUB_ACTION_PATH}/entrypoint.py" "$FEED"

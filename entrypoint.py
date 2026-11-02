@@ -12,6 +12,7 @@ import feedvalidator
 from feedvalidator import compatibility, logging as fv_logging
 
 COMPATIBILITY_LEVELS = ("A", "AA", "AAA")
+FAIL_ON_LEVELS = ("errors", "warnings", "info", "never")
 
 
 @dataclass
@@ -183,7 +184,10 @@ def main() -> int:
         print("usage: entrypoint.py <feed-path-or-url>", file=sys.stderr)
         return 2
     target = sys.argv[1]
-    fail_on = os.environ.get("FAIL_ON", "errors")
+    fail_on = os.environ.get("FAIL_ON", "errors").lower()
+    if fail_on not in FAIL_ON_LEVELS:
+        print(f"::error::Unknown fail-on value {fail_on!r}; expected one of {', '.join(FAIL_ON_LEVELS)}.")
+        return 2
     compat = os.environ.get("COMPATIBILITY", "AA")
     origin_url = os.environ.get("ORIGIN_URL", "")
     return emit_gha(validate(target, compat=compat, origin_url=origin_url), fail_on)

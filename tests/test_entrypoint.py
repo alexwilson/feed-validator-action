@@ -1,9 +1,10 @@
 """Contract tests for the validate-feed entrypoint."""
+import sys
 from pathlib import Path
 
 import pytest
 
-from entrypoint import Issue, Result, emit_gha, validate
+from entrypoint import Issue, Result, emit_gha, main, validate
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -151,3 +152,13 @@ def test_summary_includes_info_events(monkeypatch, tmp_path):
 
     assert result.info
     assert "INFO" in summary_file.read_text()
+
+
+def test_unknown_fail_on_value_fails_fast(monkeypatch, capsys):
+    # A typo such as `fail-on: warning` must fail the step, not silently fall
+    # back to errors-only. Point at a missing feed to prove the check runs
+    # before the validator does.
+    monkeypatch.setenv("FAIL_ON", "warning")
+    monkeypatch.setattr(sys, "argv", ["entrypoint.py", "does-not-exist.xml"])
+    assert main() == 2
+    assert "::error::" in capsys.readouterr().out
